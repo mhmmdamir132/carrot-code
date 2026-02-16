@@ -166,3 +166,45 @@ def analyze_python(source: str) -> AnalysisResult:
     elif complexity <= 25:
         level = ComplexityLevel.HIGH
     else:
+        level = ComplexityLevel.VERY_HIGH
+    style_hints = []
+    issues = []
+    long_lines = [i + 1 for i, ln in enumerate(lines) if len(ln) > CRUNCH_MAX_LINE_LENGTH_DEFAULT]
+    if long_lines:
+        style_hints.append(f"Lines {long_lines[:5]}{'...' if len(long_lines) > 5 else ''} exceed {CRUNCH_MAX_LINE_LENGTH_DEFAULT} chars.")
+    if level in (ComplexityLevel.HIGH, ComplexityLevel.VERY_HIGH):
+        issues.append(f"High cyclomatic complexity ({complexity}). Consider splitting functions.")
+    suggested = []
+    if "TODO" in source or "FIXME" in source:
+        suggested.append("Add comments or resolve TODO/FIXME.")
+    if complexity > CRUNCH_COMPLEXITY_HIGH_THRESHOLD:
+        suggested.append("Refactor into smaller functions to reduce complexity.")
+    return AnalysisResult(
+        language="python",
+        complexity_score=complexity,
+        complexity_level=level,
+        line_count=line_count,
+        approximate_token_count=tokens_approx,
+        style_hints=style_hints or ["No major style issues detected."],
+        potential_issues=issues or ["None identified."],
+        suggested_actions=suggested or ["Code looks reasonable."],
+    )
+
+
+def analyze_generic(source: str, language: str = "generic") -> AnalysisResult:
+    lines = source.splitlines()
+    n = len(lines)
+    words = len(source.split())
+    complexity = min(99, max(1, words // 20 + len(re.findall(r"\b(if|else|for|while|switch|case)\b", source, re.I))))
+    if complexity <= CRUNCH_COMPLEXITY_MED_THRESHOLD:
+        level = ComplexityLevel.LOW
+    elif complexity <= CRUNCH_COMPLEXITY_HIGH_THRESHOLD:
+        level = ComplexityLevel.MEDIUM
+    elif complexity <= 25:
+        level = ComplexityLevel.HIGH
+    else:
+        level = ComplexityLevel.VERY_HIGH
+    long_lines = [i + 1 for i, ln in enumerate(lines) if len(ln) > CRUNCH_MAX_LINE_LENGTH_DEFAULT]
+    style_hints = [f"Lines {long_lines[:5]} exceed max length."] if long_lines else ["No major style issues."]
+    return AnalysisResult(
+        language=language,
