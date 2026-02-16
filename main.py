@@ -82,3 +82,45 @@ class CodeBlock:
 @dataclass
 class Session:
     session_id: str
+    created_at: str
+    blocks: list[CodeBlock] = field(default_factory=list)
+    suggestions: list[dict[str, Any]] = field(default_factory=list)
+    meta: dict[str, Any] = field(default_factory=dict)
+
+    def session_digest(self) -> str:
+        h = hashlib.new(CRUNCH_DIGEST_ALGO)
+        h.update(CRUNCH_SESSION_SEED.encode())
+        h.update(self.session_id.encode())
+        h.update(self.created_at.encode())
+        for b in self.blocks:
+            h.update(b.digest().encode())
+        return h.hexdigest()
+
+    def payload_tag(self) -> str:
+        h = hashlib.new(CRUNCH_DIGEST_ALGO)
+        h.update(CRUNCH_ANCHOR_SALT.encode())
+        h.update(self.session_digest().encode())
+        return "0x" + h.hexdigest()[:64]
+
+
+@dataclass
+class AnalysisResult:
+    language: str
+    complexity_score: int
+    complexity_level: ComplexityLevel
+    line_count: int
+    approximate_token_count: int
+    style_hints: list[str]
+    potential_issues: list[str]
+    suggested_actions: list[str]
+
+
+def _now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def _generate_session_id() -> str:
+    h = hashlib.new(CRUNCH_DIGEST_ALGO)
+    h.update(_now_iso().encode())
+    h.update(CRUNCH_SESSION_SEED.encode())
+    return "sess_" + h.hexdigest()[:24]
