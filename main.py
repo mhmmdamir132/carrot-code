@@ -208,3 +208,45 @@ def analyze_generic(source: str, language: str = "generic") -> AnalysisResult:
     style_hints = [f"Lines {long_lines[:5]} exceed max length."] if long_lines else ["No major style issues."]
     return AnalysisResult(
         language=language,
+        complexity_score=complexity,
+        complexity_level=level,
+        line_count=n,
+        approximate_token_count=words,
+        style_hints=style_hints,
+        potential_issues=[],
+        suggested_actions=[],
+    )
+
+
+def analyze(source: str, language: str = "auto") -> AnalysisResult:
+    if language == "auto":
+        language = "python" if _looks_like_python(source) else "generic"
+    if language == "python":
+        return analyze_python(source)
+    return analyze_generic(source, language)
+
+
+def _looks_like_python(source: str) -> bool:
+    trimmed = source.strip()
+    if trimmed.startswith("def ") or trimmed.startswith("class "):
+        return True
+    if "import " in trimmed[:200] and ("\n" in trimmed or " " in trimmed):
+        return True
+    if re.search(r"\bdef\s+\w+\s*\(", trimmed[:500]):
+        return True
+    return False
+
+
+# ------------------------------------------------------------------------------
+# Suggestion generators (stub text; plug in real LLM later)
+# ------------------------------------------------------------------------------
+
+def suggest_explain(block: CodeBlock, analysis: AnalysisResult) -> str:
+    return f"""Explain (CarrotCoder):
+
+This block is {block.language}, {analysis.line_count} lines, complexity {analysis.complexity_score} ({analysis.complexity_level.name}).
+Steps to explain: (1) state purpose, (2) walk control flow, (3) note inputs/outputs and side effects.
+Style notes: {'; '.join(analysis.style_hints[:2])}
+"""
+
+
