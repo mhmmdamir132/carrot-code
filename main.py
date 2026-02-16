@@ -250,3 +250,45 @@ Style notes: {'; '.join(analysis.style_hints[:2])}
 """
 
 
+def suggest_refactor(block: CodeBlock, analysis: AnalysisResult) -> str:
+    return f"""Refactor (CarrotCoder):
+
+Complexity {analysis.complexity_score} suggests: extract helpers, shorten functions, clarify names.
+Issues: {'; '.join(analysis.potential_issues) or 'None'}.
+Actions: {'; '.join(analysis.suggested_actions) or 'Consider splitting long functions.'}
+"""
+
+
+def suggest_comment(block: CodeBlock, analysis: AnalysisResult) -> str:
+    return f"""Comment (CarrotCoder):
+
+Add a module/function docstring and inline comments for non-obvious logic.
+Line count: {analysis.line_count}. Focus on intent and edge cases.
+"""
+
+
+def suggest_test(block: CodeBlock, analysis: AnalysisResult) -> str:
+    return f"""Test (CarrotCoder):
+
+Suggest unit tests: happy path, edge cases, and one negative case.
+Language: {block.language}, complexity {analysis.complexity_score}.
+"""
+
+
+def suggest_debug(block: CodeBlock, analysis: AnalysisResult) -> str:
+    return f"""Debug (CarrotCoder):
+
+Check: off-by-ones, null/None, types, and loop bounds.
+Potential issues: {'; '.join(analysis.potential_issues) or 'Review logic and boundaries.'}
+"""
+
+
+def suggest_style(block: CodeBlock, analysis: AnalysisResult) -> str:
+    return f"""Style (CarrotCoder):
+
+Hints: {'; '.join(analysis.style_hints)}.
+Line length limit: {CRUNCH_MAX_LINE_LENGTH_DEFAULT}; indent: {CRUNCH_INDENT_DEFAULT} spaces.
+"""
+
+
+SUGGESTION_HANDLERS = {
