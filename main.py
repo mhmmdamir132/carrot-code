@@ -124,3 +124,45 @@ def _generate_session_id() -> str:
     h.update(_now_iso().encode())
     h.update(CRUNCH_SESSION_SEED.encode())
     return "sess_" + h.hexdigest()[:24]
+
+
+# ------------------------------------------------------------------------------
+# Python AST complexity (cyclomatic-style)
+# ------------------------------------------------------------------------------
+
+def _python_complexity(node: ast.AST) -> int:
+    n = 1
+    for child in ast.walk(node):
+        if isinstance(child, (ast.If, ast.While, ast.For, ast.ExceptHandler,
+                             ast.With, ast.Assert, ast.BoolOp, ast.comprehension)):
+            n += 1
+        if isinstance(child, ast.comprehension) and child.ifs:
+            n += len(child.ifs)
+    return n
+
+
+def analyze_python(source: str) -> AnalysisResult:
+    try:
+        tree = ast.parse(source)
+        complexity = _python_complexity(tree)
+    except SyntaxError:
+        return AnalysisResult(
+            language="python",
+            complexity_score=0,
+            complexity_level=ComplexityLevel.LOW,
+            line_count=len(source.splitlines()),
+            approximate_token_count=len(source.split()),
+            style_hints=["Syntax error: fix before analysis."],
+            potential_issues=["Invalid Python syntax."],
+            suggested_actions=["Fix syntax errors and re-run analysis."],
+        )
+    lines = source.splitlines()
+    line_count = len(lines)
+    tokens_approx = len(source.split())
+    if complexity <= CRUNCH_COMPLEXITY_MED_THRESHOLD:
+        level = ComplexityLevel.LOW
+    elif complexity <= CRUNCH_COMPLEXITY_HIGH_THRESHOLD:
+        level = ComplexityLevel.MEDIUM
+    elif complexity <= 25:
+        level = ComplexityLevel.HIGH
+    else:
