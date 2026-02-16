@@ -334,3 +334,45 @@ class SessionStore:
         s = Session(session_id=sid, created_at=_now_iso())
         self._sessions[sid] = s
         self._order.append(sid)
+        return s
+
+    def get(self, session_id: str) -> Session | None:
+        return self._sessions.get(session_id)
+
+    def add_block(self, session_id: str, block: CodeBlock) -> bool:
+        s = self._sessions.get(session_id)
+        if not s:
+            return False
+        if len(s.blocks) >= CRUNCH_MAX_SUGGESTIONS_PER_SESSION:
+            return False
+        s.blocks.append(block)
+        return True
+
+    def add_suggestion(self, session_id: str, suggestion: dict[str, Any]) -> bool:
+        s = self._sessions.get(session_id)
+        if not s:
+            return False
+        if len(s.suggestions) >= CRUNCH_MAX_SUGGESTIONS_PER_SESSION:
+            return False
+        s.suggestions.append(suggestion)
+        return True
+
+    def session_digest_hex(self, session_id: str) -> str | None:
+        s = self._sessions.get(session_id)
+        if not s:
+            return None
+        return s.session_digest()
+
+    def payload_tag_hex(self, session_id: str) -> str | None:
+        s = self._sessions.get(session_id)
+        if not s:
+            return None
+        return s.payload_tag()
+
+    def list_sessions(self) -> list[str]:
+        return list(reversed(self._order))
+
+
+# ------------------------------------------------------------------------------
+# CLI and HTTP API (single-file server)
+# ------------------------------------------------------------------------------
