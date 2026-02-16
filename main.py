@@ -376,3 +376,45 @@ class SessionStore:
 # ------------------------------------------------------------------------------
 # CLI and HTTP API (single-file server)
 # ------------------------------------------------------------------------------
+
+def _parse_language_from_path(path: str) -> str:
+    p = path.lower()
+    if p.endswith(".py"):
+        return "python"
+    if p.endswith(".js") or p.endswith(".ts") or p.endswith(".tsx"):
+        return "javascript"
+    if p.endswith(".sol"):
+        return "solidity"
+    if p.endswith(".go"):
+        return "go"
+    if p.endswith(".rs"):
+        return "rust"
+    return "generic"
+
+
+def cmd_analyze(args: list[str], store: SessionStore) -> int:
+    if not args:
+        print("Usage: carrot_coder analyze <file_or_stdin> [language]")
+        return 1
+    path = args[0]
+    language = args[1] if len(args) > 1 else "auto"
+    if path == "-":
+        source = sys.stdin.read()
+        path_display = "<stdin>"
+        lang = language if language != "auto" else "python"
+    else:
+        p = Path(path)
+        if not p.exists():
+            print(f"File not found: {path}")
+            return 1
+        source = p.read_text(encoding="utf-8", errors="replace")
+        path_display = str(p)
+        lang = language if language != "auto" else _parse_language_from_path(path)
+    block = CodeBlock(raw=source, language=lang, path=path_display, start_line=1, end_line=len(source.splitlines()))
+    result = analyze(source, lang)
+    print(json.dumps({
+        "path": path_display,
+        "language": result.language,
+        "complexityScore": result.complexity_score,
+        "complexityLevel": result.complexity_level.name,
+        "lineCount": result.line_count,
