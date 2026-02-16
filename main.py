@@ -292,3 +292,45 @@ Line length limit: {CRUNCH_MAX_LINE_LENGTH_DEFAULT}; indent: {CRUNCH_INDENT_DEFA
 
 
 SUGGESTION_HANDLERS = {
+    SuggestionKind.EXPLAIN: suggest_explain,
+    SuggestionKind.REFACTOR: suggest_refactor,
+    SuggestionKind.COMMENT: suggest_comment,
+    SuggestionKind.TEST: suggest_test,
+    SuggestionKind.DEBUG: suggest_debug,
+    SuggestionKind.STYLE: suggest_style,
+}
+
+
+def produce_suggestion(block: CodeBlock, kind: SuggestionKind) -> dict[str, Any]:
+    analysis = analyze(block.raw, block.language)
+    handler = SUGGESTION_HANDLERS.get(kind, suggest_explain)
+    text = handler(block, analysis)
+    suggestion_id = hashlib.new(CRUNCH_DIGEST_ALGO)
+    suggestion_id.update(block.digest().encode())
+    suggestion_id.update(kind.value.encode())
+    suggestion_id.update(text[:200].encode())
+    sid = "0x" + suggestion_id.hexdigest()[:64]
+    return {
+        "suggestionId": sid,
+        "kind": kind.value,
+        "text": text,
+        "codeHash": block.digest(),
+        "complexityScore": analysis.complexity_score,
+        "createdAt": _now_iso(),
+    }
+
+
+# ------------------------------------------------------------------------------
+# Session store and digest (for CrunchSessionVault)
+# ------------------------------------------------------------------------------
+
+class SessionStore:
+    def __init__(self) -> None:
+        self._sessions: dict[str, Session] = {}
+        self._order: list[str] = []
+
+    def create(self) -> Session:
+        sid = _generate_session_id()
+        s = Session(session_id=sid, created_at=_now_iso())
+        self._sessions[sid] = s
+        self._order.append(sid)
