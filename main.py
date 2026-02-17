@@ -796,3 +796,45 @@ def wrap_comment(text: str, width: int = 72, prefix: str = "# ") -> str:
 
 # ------------------------------------------------------------------------------
 # Extra suggestion text and templates
+# ------------------------------------------------------------------------------
+
+CRUNCH_EXPLAIN_TEMPLATE = """CarrotCoder Explain:
+- Purpose: {purpose}
+- Steps: {steps}
+- Complexity: {complexity}
+"""
+
+CRUNCH_REFACTOR_TEMPLATE = """CarrotCoder Refactor:
+- Extract: {extract}
+- Rename: {rename}
+- Split: {split}
+"""
+
+
+def _expand_explain(block: CodeBlock, analysis: AnalysisResult) -> str:
+    purpose = "Process data and return result."
+    steps = "Parse input -> validate -> compute -> return."
+    if analysis.complexity_level in (ComplexityLevel.HIGH, ComplexityLevel.VERY_HIGH):
+        steps = "Multiple branches; consider splitting into smaller functions."
+    return CRUNCH_EXPLAIN_TEMPLATE.format(
+        purpose=purpose,
+        steps=steps,
+        complexity=analysis.complexity_level.name,
+    )
+
+
+def _expand_refactor(block: CodeBlock, analysis: AnalysisResult) -> str:
+    extract = "Helper functions for repeated logic."
+    rename = "Descriptive names for variables and functions."
+    split = "Long functions into smaller units." if analysis.complexity_score > CRUNCH_COMPLEXITY_HIGH_THRESHOLD else "Optional."
+    return CRUNCH_REFACTOR_TEMPLATE.format(extract=extract, rename=rename, split=split)
+
+
+# ------------------------------------------------------------------------------
+# Digest utilities for on-chain (CrunchSessionVault)
+# ------------------------------------------------------------------------------
+
+def digest_session_for_vault(session_id: str, created_at: str, block_digests: list[str]) -> str:
+    h = hashlib.new(CRUNCH_DIGEST_ALGO)
+    h.update(CRUNCH_SESSION_SEED.encode())
+    h.update(session_id.encode())
