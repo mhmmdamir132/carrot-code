@@ -1006,3 +1006,45 @@ def validate_kind(kind_str: str) -> SuggestionKind | None:
 # Response builders for API (consistent JSON shape)
 # ------------------------------------------------------------------------------
 
+def api_success(data: dict[str, Any], meta: dict[str, Any] | None = None) -> dict[str, Any]:
+    out: dict[str, Any] = {"ok": True, "data": data}
+    if meta:
+        out["meta"] = meta
+    return out
+
+
+def api_error(message: str, code: str = "error") -> dict[str, Any]:
+    return {"ok": False, "error": message, "code": code}
+
+
+# ------------------------------------------------------------------------------
+# Extended HTTP handler: session get, batch, metrics, digest
+# ------------------------------------------------------------------------------
+
+def _handler_session_get(store: SessionStore, session_id: str) -> dict[str, Any]:
+    s = store.get(session_id)
+    if not s:
+        return api_error("Session not found", "NOT_FOUND")
+    return api_success({
+        "sessionId": s.session_id,
+        "createdAt": s.created_at,
+        "sessionDigest": s.session_digest(),
+        "payloadTag": s.payload_tag(),
+        "blockCount": len(s.blocks),
+        "suggestionCount": len(s.suggestions),
+    })
+
+
+def _handler_metrics(body: dict[str, Any]) -> dict[str, Any]:
+    source = body.get("source", "")
+    lang = body.get("language", "python")
+    if not source:
+        return api_error("Missing 'source'")
+    source = sanitize_source(source)
+    lang = validate_language(lang)
+    m = compute_metrics(source, lang)
+    return api_success(metrics_to_dict(m))
+
+
+def _handler_digest(body: dict[str, Any]) -> dict[str, Any]:
+    source = body.get("source", "")
