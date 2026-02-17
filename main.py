@@ -502,3 +502,45 @@ def cmd_serve(args: list[str], store: SessionStore) -> int:
         def log_message(self, format: str, *args: Any) -> None:
             pass
 
+        def _json(self, obj: Any, status: int = 200) -> None:
+            self.send_response(status)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(json.dumps(obj).encode("utf-8"))
+
+        def _parse_body(self) -> dict[str, Any]:
+            length = int(self.headers.get("Content-Length", 0))
+            if length <= 0:
+                return {}
+            raw = self.rfile.read(length)
+            try:
+                return json.loads(raw.decode("utf-8"))
+            except json.JSONDecodeError:
+                return {}
+
+        def do_OPTIONS(self) -> None:
+            self.send_response(204)
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+            self.send_header("Access-Control-Allow-Headers", "Content-Type")
+            self.end_headers()
+
+        def do_GET(self) -> None:
+            if self.path == "/health":
+                self._json({"status": "ok", "engine": "CarrotCoder", "namespace": CRUNCH_NAMESPACE})
+                return
+            if self.path == "/sessions":
+                self._json({"sessions": store.list_sessions()})
+                return
+            if self.path.startswith("/session/") and len(self.path) > 9:
+                session_id = self.path.split("/", 2)[2]
+                resp = _handler_session_get(store, session_id)
+                self._json(resp, 200 if resp.get("ok") else 404)
+                return
+            self.send_response(404)
+            self.end_headers()
+
+        def do_POST(self) -> None:
+            body = self._parse_body()
+            if self.path == "/session/new":
