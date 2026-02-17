@@ -964,3 +964,45 @@ def extract_python_symbols(source: str) -> list[SymbolInfo]:
         for node in ast.walk(tree):
             if isinstance(node, (ast.FunctionDef, ast.ClassDef, ast.AsyncFunctionDef)):
                 doc = ast.get_docstring(node)
+                kind = "class" if isinstance(node, ast.ClassDef) else "function"
+                out.append(SymbolInfo(name=node.name, kind=kind, line=node.lineno, docstring=doc))
+    except SyntaxError:
+        pass
+    return out
+
+
+def extract_module_docstring(source: str) -> str | None:
+    try:
+        tree = ast.parse(source)
+        return ast.get_docstring(tree)
+    except SyntaxError:
+        return None
+
+
+# ------------------------------------------------------------------------------
+# Validation and sanitization for web input
+# ------------------------------------------------------------------------------
+
+def sanitize_source(input_source: str, max_chars: int | None = None) -> str:
+    max_chars = max_chars or CRUNCH_MAX_SNIPPET_CHARS
+    if len(input_source) > max_chars:
+        return input_source[:max_chars]
+    return input_source
+
+
+def validate_language(lang: str) -> str:
+    allowed = {"python", "javascript", "solidity", "go", "rust", "generic", "auto"}
+    return lang if lang in allowed else "generic"
+
+
+def validate_kind(kind_str: str) -> SuggestionKind | None:
+    try:
+        return SuggestionKind(kind_str)
+    except ValueError:
+        return None
+
+
+# ------------------------------------------------------------------------------
+# Response builders for API (consistent JSON shape)
+# ------------------------------------------------------------------------------
+
