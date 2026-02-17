@@ -838,3 +838,45 @@ def digest_session_for_vault(session_id: str, created_at: str, block_digests: li
     h = hashlib.new(CRUNCH_DIGEST_ALGO)
     h.update(CRUNCH_SESSION_SEED.encode())
     h.update(session_id.encode())
+    h.update(created_at.encode())
+    for d in sorted(block_digests):
+        h.update(d.encode())
+    return h.hexdigest()
+
+
+def payload_tag_for_vault(session_digest_hex: str) -> str:
+    h = hashlib.new(CRUNCH_DIGEST_ALGO)
+    h.update(CRUNCH_ANCHOR_SALT.encode())
+    h.update(session_digest_hex.encode())
+    return "0x" + h.hexdigest()[:64]
+
+
+def bytes32_from_hex(hex_str: str) -> bytes:
+    s = hex_str.replace("0x", "")
+    if len(s) != 64:
+        s = (s + "0" * 64)[:64]
+    return bytes.fromhex(s)
+
+
+# ------------------------------------------------------------------------------
+# CLI: batch, metrics
+# ------------------------------------------------------------------------------
+
+def cmd_batch_analyze(args: list[str], store: SessionStore) -> int:
+    if not args:
+        print("Usage: carrot_coder batch_analyze <directory> [max_files]")
+        return 1
+    root = Path(args[0])
+    max_files = int(args[1]) if len(args) > 1 else 200
+    if not root.is_dir():
+        print(f"Not a directory: {root}")
+        return 1
+    results = batch_analyze(root, max_files)
+    print(json.dumps({"count": len(results), "results": results}, indent=2))
+    return 0
+
+
+def cmd_metrics(args: list[str], store: SessionStore) -> int:
+    if not args:
+        print("Usage: carrot_coder metrics <file_or_stdin> [language]")
+        return 1
