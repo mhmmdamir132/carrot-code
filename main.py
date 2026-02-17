@@ -460,3 +460,45 @@ def cmd_suggest(args: list[str], store: SessionStore) -> int:
     print("---")
     print(json.dumps({"suggestionId": sug["suggestionId"], "codeHash": sug["codeHash"], "kind": kind.value}, indent=2))
     return 0
+
+
+def cmd_session_new(args: list[str], store: SessionStore) -> int:
+    s = store.create()
+    digest = s.session_digest()
+    tag = s.payload_tag()
+    print(json.dumps({
+        "sessionId": s.session_id,
+        "createdAt": s.created_at,
+        "sessionDigest": digest,
+        "payloadTag": tag,
+    }, indent=2))
+    return 0
+
+
+def cmd_session_digest(args: list[str], store: SessionStore) -> int:
+    if not args:
+        print("Usage: carrot_coder session_digest <session_id>")
+        return 1
+    session_id = args[0]
+    digest = store.session_digest_hex(session_id)
+    tag = store.payload_tag_hex(session_id)
+    if digest is None:
+        print("Session not found.")
+        return 1
+    print(json.dumps({"sessionId": session_id, "sessionDigest": digest, "payloadTag": tag}, indent=2))
+    return 0
+
+
+def cmd_serve(args: list[str], store: SessionStore) -> int:
+    try:
+        from http.server import HTTPServer, BaseHTTPRequestHandler
+    except ImportError:
+        print("HTTP server not available.")
+        return 1
+    port = int(args[0]) if args else 8765
+    host = "127.0.0.1"
+
+    class CarrotCoderHandler(BaseHTTPRequestHandler):
+        def log_message(self, format: str, *args: Any) -> None:
+            pass
+
