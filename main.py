@@ -544,3 +544,45 @@ def cmd_serve(args: list[str], store: SessionStore) -> int:
         def do_POST(self) -> None:
             body = self._parse_body()
             if self.path == "/session/new":
+                s = store.create()
+                self._json({
+                    "sessionId": s.session_id,
+                    "createdAt": s.created_at,
+                    "sessionDigest": s.session_digest(),
+                    "payloadTag": s.payload_tag(),
+                })
+                return
+            if self.path == "/analyze":
+                source = body.get("source", "")
+                lang = body.get("language", "auto")
+                if not source:
+                    self._json({"error": "Missing 'source'"}, 400)
+                    return
+                block = CodeBlock(raw=source, language=lang, path=body.get("path"), start_line=1, end_line=len(source.splitlines()))
+                result = analyze(source, lang)
+                self._json({
+                    "language": result.language,
+                    "complexityScore": result.complexity_score,
+                    "complexityLevel": result.complexity_level.name,
+                    "lineCount": result.line_count,
+                    "approximateTokenCount": result.approximate_token_count,
+                    "styleHints": result.style_hints,
+                    "potentialIssues": result.potential_issues,
+                    "suggestedActions": result.suggested_actions,
+                    "codeDigest": block.digest(),
+                })
+                return
+            if self.path == "/suggest":
+                source = body.get("source", "")
+                kind_str = body.get("kind", "explain")
+                if not source:
+                    self._json({"error": "Missing 'source'"}, 400)
+                    return
+                try:
+                    kind = SuggestionKind(kind_str)
+                except ValueError:
+                    self._json({"error": f"Invalid kind: {kind_str}"}, 400)
+                    return
+                lang = body.get("language", "python")
+                block = CodeBlock(raw=source, language=lang, path=body.get("path"), start_line=1, end_line=len(source.splitlines()))
+                sug = produce_suggestion(block, kind)
