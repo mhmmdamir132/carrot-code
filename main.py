@@ -880,3 +880,45 @@ def cmd_metrics(args: list[str], store: SessionStore) -> int:
     if not args:
         print("Usage: carrot_coder metrics <file_or_stdin> [language]")
         return 1
+    path = args[0]
+    language = args[1] if len(args) > 1 else "auto"
+    if path == "-":
+        source = sys.stdin.read()
+        lang = "python"
+    else:
+        p = Path(path)
+        if not p.exists():
+            print(f"File not found: {path}")
+            return 1
+        source = p.read_text(encoding="utf-8", errors="replace")
+        lang = _parse_language_from_path(str(p))
+    if language != "auto":
+        lang = language
+    m = compute_metrics(source, lang)
+    print(json.dumps(metrics_to_dict(m), indent=2))
+    return 0
+
+
+def cmd_digest(args: list[str], store: SessionStore) -> int:
+    if not args:
+        print("Usage: carrot_coder digest <file_or_stdin>")
+        return 1
+    path = args[0]
+    if path == "-":
+        source = sys.stdin.read()
+    else:
+        p = Path(path)
+        if not p.exists():
+            print(f"File not found: {path}")
+            return 1
+        source = p.read_text(encoding="utf-8", errors="replace")
+    block = CodeBlock(raw=source, language="python", path=path, start_line=1, end_line=len(source.splitlines()))
+    print(json.dumps({"codeDigest": block.digest(), "path": path}, indent=2))
+    return 0
+
+
+def main() -> int:
+    store = SessionStore()
+    argv = sys.argv[1:]
+    if not argv:
+        print("CarrotCoder — coding assistant. Commands: analyze, suggest, session_new, session_digest, serve, batch_analyze, metrics, digest")
