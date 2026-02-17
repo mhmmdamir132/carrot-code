@@ -670,3 +670,45 @@ def compute_metrics(source: str, language: str = "python") -> CodeMetrics:
     code_lines = 0
     comment_lines = 0
     blank_lines = 0
+    max_len = 0
+    total_len = 0
+    for ln in lines:
+        s = ln.strip()
+        if not s:
+            blank_lines += 1
+        elif s.startswith("#") or (language == "python" and s.startswith('"""') or s.startswith("'''")):
+            comment_lines += 1
+        else:
+            code_lines += 1
+        n = len(ln)
+        if n > max_len:
+            max_len = n
+        total_len += n
+    avg_len = total_len / total if total else 0
+    id_count, unique_ids = _count_identifiers_python(source) if language == "python" else (0, 0)
+    func_like = len(re.findall(r"\b(def|function|func|fn)\s*\w*\s*\(", source))
+    depth_max = _depth_from_indent(lines, CRUNCH_INDENT_DEFAULT)
+    return CodeMetrics(
+        total_lines=total,
+        code_lines=code_lines,
+        comment_lines=comment_lines,
+        blank_lines=blank_lines,
+        max_line_length=max_len,
+        avg_line_length=round(avg_len, 1),
+        identifier_count=id_count,
+        unique_identifiers=unique_ids,
+        function_like_count=func_like,
+        depth_max=depth_max,
+    )
+
+
+def metrics_to_dict(m: CodeMetrics) -> dict[str, Any]:
+    return {
+        "totalLines": m.total_lines,
+        "codeLines": m.code_lines,
+        "commentLines": m.comment_lines,
+        "blankLines": m.blank_lines,
+        "maxLineLength": m.max_line_length,
+        "avgLineLength": m.avg_line_length,
+        "identifierCount": m.identifier_count,
+        "uniqueIdentifiers": m.unique_identifiers,
