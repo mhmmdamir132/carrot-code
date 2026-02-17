@@ -586,3 +586,45 @@ def cmd_serve(args: list[str], store: SessionStore) -> int:
                 lang = body.get("language", "python")
                 block = CodeBlock(raw=source, language=lang, path=body.get("path"), start_line=1, end_line=len(source.splitlines()))
                 sug = produce_suggestion(block, kind)
+                session_id = body.get("sessionId")
+                if session_id:
+                    store.add_suggestion(session_id, sug)
+                self._json(sug)
+                return
+            if self.path == "/metrics":
+                resp = _handler_metrics(body)
+                self._json(resp, 200 if resp.get("ok") else 400)
+                return
+            if self.path == "/digest":
+                resp = _handler_digest(body)
+                self._json(resp, 200 if resp.get("ok") else 400)
+                return
+            if self.path == "/symbols":
+                resp = _handler_symbols(body)
+                self._json(resp, 200 if resp.get("ok") else 400)
+                return
+            self.send_response(404)
+            self.end_headers()
+
+    server = HTTPServer((host, port), CarrotCoderHandler)
+    print(f"CarrotCoder API at http://{host}:{port}")
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        pass
+    return 0
+
+
+# ------------------------------------------------------------------------------
+# Code metrics (identifiers, naming, line stats)
+# ------------------------------------------------------------------------------
+
+@dataclass
+class CodeMetrics:
+    total_lines: int
+    code_lines: int
+    comment_lines: int
+    blank_lines: int
+    max_line_length: int
+    avg_line_length: float
+    identifier_count: int
