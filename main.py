@@ -628,3 +628,45 @@ class CodeMetrics:
     max_line_length: int
     avg_line_length: float
     identifier_count: int
+    unique_identifiers: int
+    function_like_count: int
+    depth_max: int
+
+
+def _count_identifiers_python(source: str) -> tuple[int, int]:
+    try:
+        tree = ast.parse(source)
+        names: set[str] = set()
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Name):
+                names.add(node.id)
+            if isinstance(node, ast.FunctionDef):
+                names.add(node.name)
+            if isinstance(node, ast.ClassDef):
+                names.add(node.name)
+            if isinstance(node, ast.arg):
+                names.add(node.arg)
+        return sum(1 for _ in ast.walk(tree) if isinstance(_, (ast.Name, ast.FunctionDef, ast.ClassDef, ast.arg))), len(names)
+    except SyntaxError:
+        tokens = re.findall(r"[a-zA-Z_][a-zA-Z0-9_]*", source)
+        return len(tokens), len(set(tokens))
+
+
+def _depth_from_indent(lines: list[str], indent_size: int) -> int:
+    depth = 0
+    for line in lines:
+        if not line.strip():
+            continue
+        spaces = len(line) - len(line.lstrip())
+        d = spaces // indent_size if indent_size else 0
+        if d > depth:
+            depth = d
+    return depth
+
+
+def compute_metrics(source: str, language: str = "python") -> CodeMetrics:
+    lines = source.splitlines()
+    total = len(lines)
+    code_lines = 0
+    comment_lines = 0
+    blank_lines = 0
