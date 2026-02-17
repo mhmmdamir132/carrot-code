@@ -712,3 +712,45 @@ def metrics_to_dict(m: CodeMetrics) -> dict[str, Any]:
         "avgLineLength": m.avg_line_length,
         "identifierCount": m.identifier_count,
         "uniqueIdentifiers": m.unique_identifiers,
+        "functionLikeCount": m.function_like_count,
+        "depthMax": m.depth_max,
+    }
+
+
+# ------------------------------------------------------------------------------
+# Batch file walker and directory analyze
+# ------------------------------------------------------------------------------
+
+CRUNCH_EXTENSIONS = {".py", ".js", ".ts", ".tsx", ".sol", ".go", ".rs", ".java", ".c", ".cpp", ".h", ".hpp", ".cs", ".rb", ".php"}
+CRUNCH_IGNORE_DIRS = {".git", "__pycache__", "node_modules", "venv", ".venv", "dist", "build", ".tox", "vendor"}
+
+
+def walk_code_files(root: Path, extensions: set[str] | None = None, ignore_dirs: set[str] | None = None) -> Iterator[Path]:
+    ext = extensions or CRUNCH_EXTENSIONS
+    ignore = ignore_dirs or CRUNCH_IGNORE_DIRS
+    for p in root.rglob("*"):
+        if not p.is_file():
+            continue
+        if any(part in ignore for part in p.parts):
+            continue
+        if p.suffix.lower() in ext:
+            yield p
+
+
+def batch_analyze(root: Path, max_files: int = 200) -> list[dict[str, Any]]:
+    results = []
+    for i, p in enumerate(walk_code_files(root)):
+        if i >= max_files:
+            break
+        try:
+            source = p.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        lang = _parse_language_from_path(str(p))
+        block = CodeBlock(raw=source, language=lang, path=str(p), start_line=1, end_line=len(source.splitlines()))
+        result = analyze(source, lang)
+        metrics = compute_metrics(source, lang)
+        results.append({
+            "path": str(p),
+            "language": result.language,
+            "complexityScore": result.complexity_score,
