@@ -418,3 +418,45 @@ def cmd_analyze(args: list[str], store: SessionStore) -> int:
         "complexityScore": result.complexity_score,
         "complexityLevel": result.complexity_level.name,
         "lineCount": result.line_count,
+        "approximateTokenCount": result.approximate_token_count,
+        "styleHints": result.style_hints,
+        "potentialIssues": result.potential_issues,
+        "suggestedActions": result.suggested_actions,
+        "codeDigest": block.digest(),
+    }, indent=2))
+    return 0
+
+
+def cmd_suggest(args: list[str], store: SessionStore) -> int:
+    if len(args) < 2:
+        print("Usage: carrot_coder suggest <file_or_stdin> <explain|refactor|comment|test|debug|style> [session_id]")
+        return 1
+    path, kind_str = args[0], args[1].lower()
+    session_id = args[2] if len(args) > 2 else None
+    try:
+        kind = SuggestionKind(kind_str)
+    except ValueError:
+        print(f"Unknown kind: {kind_str}. Use one of: explain, refactor, comment, test, debug, style")
+        return 1
+    if path == "-":
+        source = sys.stdin.read()
+        path_display = "<stdin>"
+        lang = "python"
+    else:
+        p = Path(path)
+        if not p.exists():
+            print(f"File not found: {path}")
+            return 1
+        source = p.read_text(encoding="utf-8", errors="replace")
+        path_display = str(p)
+        lang = _parse_language_from_path(path)
+    block = CodeBlock(raw=source, language=lang, path=path_display, start_line=1, end_line=len(source.splitlines()))
+    sug = produce_suggestion(block, kind)
+    if session_id:
+        s = store.get(session_id)
+        if s:
+            store.add_suggestion(session_id, sug)
+    print(sug["text"])
+    print("---")
+    print(json.dumps({"suggestionId": sug["suggestionId"], "codeHash": sug["codeHash"], "kind": kind.value}, indent=2))
+    return 0
