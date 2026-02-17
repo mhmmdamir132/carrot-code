@@ -754,3 +754,45 @@ def batch_analyze(root: Path, max_files: int = 200) -> list[dict[str, Any]]:
             "path": str(p),
             "language": result.language,
             "complexityScore": result.complexity_score,
+            "complexityLevel": result.complexity_level.name,
+            "lineCount": result.line_count,
+            "codeDigest": block.digest(),
+            "metrics": metrics_to_dict(metrics),
+        })
+    return results
+
+
+# ------------------------------------------------------------------------------
+# Format / normalize helpers
+# ------------------------------------------------------------------------------
+
+def detect_line_ending(source: str) -> str:
+    if "\r\n" in source:
+        return "\r\n"
+    if "\r" in source:
+        return "\r"
+    return "\n"
+
+
+def normalize_line_endings(source: str, eol: str = "\n") -> str:
+    return source.replace("\r\n", "\n").replace("\r", "\n").replace("\n", eol)
+
+
+def detect_indent(source: str) -> int:
+    for line in source.splitlines():
+        s = line.lstrip()
+        if not s or s.startswith("#"):
+            continue
+        spaces = len(line) - len(s)
+        if spaces > 0:
+            return spaces
+    return CRUNCH_INDENT_DEFAULT
+
+
+def wrap_comment(text: str, width: int = 72, prefix: str = "# ") -> str:
+    lines = textwrap.wrap(text, width=width - len(prefix))
+    return "\n".join(prefix + ln for ln in lines)
+
+
+# ------------------------------------------------------------------------------
+# Extra suggestion text and templates
