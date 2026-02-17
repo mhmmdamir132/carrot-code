@@ -922,3 +922,45 @@ def main() -> int:
     argv = sys.argv[1:]
     if not argv:
         print("CarrotCoder — coding assistant. Commands: analyze, suggest, session_new, session_digest, serve, batch_analyze, metrics, digest")
+        return 0
+    cmd = argv[0].lower()
+    args = argv[1:]
+    if cmd == "analyze":
+        return cmd_analyze(args, store)
+    if cmd == "suggest":
+        return cmd_suggest(args, store)
+    if cmd == "session_new":
+        return cmd_session_new(args, store)
+    if cmd == "session_digest":
+        return cmd_session_digest(args, store)
+    if cmd == "serve":
+        return cmd_serve(args, store)
+    if cmd == "batch_analyze":
+        return cmd_batch_analyze(args, store)
+    if cmd == "metrics":
+        return cmd_metrics(args, store)
+    if cmd == "digest":
+        return cmd_digest(args, store)
+    print(f"Unknown command: {cmd}")
+    return 1
+
+
+# ------------------------------------------------------------------------------
+# Python docstring and symbol extraction
+# ------------------------------------------------------------------------------
+
+@dataclass
+class SymbolInfo:
+    name: str
+    kind: str
+    line: int
+    docstring: str | None
+
+
+def extract_python_symbols(source: str) -> list[SymbolInfo]:
+    out: list[SymbolInfo] = []
+    try:
+        tree = ast.parse(source)
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.FunctionDef, ast.ClassDef, ast.AsyncFunctionDef)):
+                doc = ast.get_docstring(node)
